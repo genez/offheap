@@ -94,7 +94,7 @@ type Key_t [64]byte
 // Val_t is the basic type for values stored in the cells in the table.
 // Users of the library will probably redefine this to be a different
 // size at the very least.
-type Val_t [56]byte
+type Val_t [512]byte
 
 // Cell is the basic payload struct, stored inline in the HashTable. The
 // cell is returned by the fundamental Lookup() function. The member
@@ -123,6 +123,8 @@ func (cell *Cell) SetValue(v interface{}) {
 		cell.SetString(a)
 	case int:
 		cell.SetInt(a)
+	case []byte:
+		cell.SetBuffer(a)
 	default:
 		panic("unsupported type")
 	}
@@ -133,6 +135,14 @@ func (cell *Cell) ZeroValue() {
 	for i := range cell.Value[:] {
 		cell.Value[i] = 0
 	}
+}
+
+func (cell *Cell) SetBuffer(b []byte) {
+	copy(cell.Value[:], b)
+}
+
+func (cell *Cell) GetBuffer() []byte {
+	return cell.Value[:]
 }
 
 // SetString stores string s (up to val_t length, currently 56 bytes) in cell.Value.
@@ -173,6 +183,16 @@ func (v *Val_t) SetString(s string) {
 // GetString retreives a string value for Val_t v.
 func (v *Val_t) GetString() string {
 	return string([]byte((*v)[:]))
+}
+
+// SetString sets a string value for Val_t v.
+func (v *Val_t) SetBuffer(b []byte) {
+	copy((*v)[:], b)
+}
+
+// GetString retreives a string value for Val_t v.
+func (v *Val_t) GetBuffer() []byte {
+	return (*v)[:]
 }
 
 // Save syncs the memory mapped file to disk using MmapMalloc::BlockUntilSync().

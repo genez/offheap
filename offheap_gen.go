@@ -140,7 +140,7 @@ func (z *Cell) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *Cell) Msgsize() (s int) {
-	s = 1 + 12 + msgp.Uint64Size + 8 + msgp.ArrayHeaderSize + (64 * (msgp.ByteSize)) + 6 + msgp.ArrayHeaderSize + (56 * (msgp.ByteSize))
+	s = 1 + 12 + msgp.Uint64Size + 8 + msgp.ArrayHeaderSize + (64 * (msgp.ByteSize)) + 6 + msgp.ArrayHeaderSize + (512 * (msgp.ByteSize))
 	return
 }
 
@@ -148,13 +148,13 @@ func (z *Cell) Msgsize() (s int) {
 func (z *HashTable) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field
-	var zajw uint32
-	zajw, err = dc.ReadMapHeader()
+	var zhct uint32
+	zhct, err = dc.ReadMapHeader()
 	if err != nil {
 		return
 	}
-	for zajw > 0 {
-		zajw--
+	for zhct > 0 {
+		zhct--
 		field, err = dc.ReadMapKeyPtr()
 		if err != nil {
 			return
@@ -186,9 +186,39 @@ func (z *HashTable) DecodeMsg(dc *msgp.Reader) (err error) {
 				return
 			}
 		case "ZeroCell":
-			err = z.ZeroCell.DecodeMsg(dc)
+			var zcua uint32
+			zcua, err = dc.ReadMapHeader()
 			if err != nil {
 				return
+			}
+			for zcua > 0 {
+				zcua--
+				field, err = dc.ReadMapKeyPtr()
+				if err != nil {
+					return
+				}
+				switch msgp.UnsafeString(field) {
+				case "UnHashedKey":
+					z.ZeroCell.UnHashedKey, err = dc.ReadUint64()
+					if err != nil {
+						return
+					}
+				case "ByteKey":
+					err = dc.ReadExactBytes(z.ZeroCell.ByteKey[:])
+					if err != nil {
+						return
+					}
+				case "Value":
+					err = dc.ReadExactBytes(z.ZeroCell.Value[:])
+					if err != nil {
+						return
+					}
+				default:
+					err = dc.Skip()
+					if err != nil {
+						return
+					}
+				}
 			}
 		default:
 			err = dc.Skip()
@@ -249,11 +279,31 @@ func (z *HashTable) EncodeMsg(en *msgp.Writer) (err error) {
 		return
 	}
 	// write "ZeroCell"
-	err = en.Append(0xa8, 0x5a, 0x65, 0x72, 0x6f, 0x43, 0x65, 0x6c, 0x6c)
+	// map header, size 3
+	// write "UnHashedKey"
+	err = en.Append(0xa8, 0x5a, 0x65, 0x72, 0x6f, 0x43, 0x65, 0x6c, 0x6c, 0x83, 0xab, 0x55, 0x6e, 0x48, 0x61, 0x73, 0x68, 0x65, 0x64, 0x4b, 0x65, 0x79)
 	if err != nil {
 		return err
 	}
-	err = z.ZeroCell.EncodeMsg(en)
+	err = en.WriteUint64(z.ZeroCell.UnHashedKey)
+	if err != nil {
+		return
+	}
+	// write "ByteKey"
+	err = en.Append(0xa7, 0x42, 0x79, 0x74, 0x65, 0x4b, 0x65, 0x79)
+	if err != nil {
+		return err
+	}
+	err = en.WriteBytes(z.ZeroCell.ByteKey[:])
+	if err != nil {
+		return
+	}
+	// write "Value"
+	err = en.Append(0xa5, 0x56, 0x61, 0x6c, 0x75, 0x65)
+	if err != nil {
+		return err
+	}
+	err = en.WriteBytes(z.ZeroCell.Value[:])
 	if err != nil {
 		return
 	}
@@ -280,11 +330,16 @@ func (z *HashTable) MarshalMsg(b []byte) (o []byte, err error) {
 	o = append(o, 0xa8, 0x5a, 0x65, 0x72, 0x6f, 0x55, 0x73, 0x65, 0x64)
 	o = msgp.AppendBool(o, z.ZeroUsed)
 	// string "ZeroCell"
-	o = append(o, 0xa8, 0x5a, 0x65, 0x72, 0x6f, 0x43, 0x65, 0x6c, 0x6c)
-	o, err = z.ZeroCell.MarshalMsg(o)
-	if err != nil {
-		return
-	}
+	// map header, size 3
+	// string "UnHashedKey"
+	o = append(o, 0xa8, 0x5a, 0x65, 0x72, 0x6f, 0x43, 0x65, 0x6c, 0x6c, 0x83, 0xab, 0x55, 0x6e, 0x48, 0x61, 0x73, 0x68, 0x65, 0x64, 0x4b, 0x65, 0x79)
+	o = msgp.AppendUint64(o, z.ZeroCell.UnHashedKey)
+	// string "ByteKey"
+	o = append(o, 0xa7, 0x42, 0x79, 0x74, 0x65, 0x4b, 0x65, 0x79)
+	o = msgp.AppendBytes(o, z.ZeroCell.ByteKey[:])
+	// string "Value"
+	o = append(o, 0xa5, 0x56, 0x61, 0x6c, 0x75, 0x65)
+	o = msgp.AppendBytes(o, z.ZeroCell.Value[:])
 	return
 }
 
@@ -292,13 +347,13 @@ func (z *HashTable) MarshalMsg(b []byte) (o []byte, err error) {
 func (z *HashTable) UnmarshalMsg(bts []byte) (o []byte, err error) {
 	var field []byte
 	_ = field
-	var zwht uint32
-	zwht, bts, err = msgp.ReadMapHeaderBytes(bts)
+	var zxhx uint32
+	zxhx, bts, err = msgp.ReadMapHeaderBytes(bts)
 	if err != nil {
 		return
 	}
-	for zwht > 0 {
-		zwht--
+	for zxhx > 0 {
+		zxhx--
 		field, bts, err = msgp.ReadMapKeyZC(bts)
 		if err != nil {
 			return
@@ -330,9 +385,39 @@ func (z *HashTable) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				return
 			}
 		case "ZeroCell":
-			bts, err = z.ZeroCell.UnmarshalMsg(bts)
+			var zlqf uint32
+			zlqf, bts, err = msgp.ReadMapHeaderBytes(bts)
 			if err != nil {
 				return
+			}
+			for zlqf > 0 {
+				zlqf--
+				field, bts, err = msgp.ReadMapKeyZC(bts)
+				if err != nil {
+					return
+				}
+				switch msgp.UnsafeString(field) {
+				case "UnHashedKey":
+					z.ZeroCell.UnHashedKey, bts, err = msgp.ReadUint64Bytes(bts)
+					if err != nil {
+						return
+					}
+				case "ByteKey":
+					bts, err = msgp.ReadExactBytes(bts, z.ZeroCell.ByteKey[:])
+					if err != nil {
+						return
+					}
+				case "Value":
+					bts, err = msgp.ReadExactBytes(bts, z.ZeroCell.Value[:])
+					if err != nil {
+						return
+					}
+				default:
+					bts, err = msgp.Skip(bts)
+					if err != nil {
+						return
+					}
+				}
 			}
 		default:
 			bts, err = msgp.Skip(bts)
@@ -347,7 +432,7 @@ func (z *HashTable) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *HashTable) Msgsize() (s int) {
-	s = 1 + 12 + msgp.IntSize + 7 + msgp.Uint64Size + 10 + msgp.Uint64Size + 11 + msgp.Uint64Size + 9 + msgp.BoolSize + 9 + z.ZeroCell.Msgsize()
+	s = 1 + 12 + msgp.IntSize + 7 + msgp.Uint64Size + 10 + msgp.Uint64Size + 11 + msgp.Uint64Size + 9 + msgp.BoolSize + 9 + 1 + 12 + msgp.Uint64Size + 8 + msgp.ArrayHeaderSize + (64 * (msgp.ByteSize)) + 6 + msgp.ArrayHeaderSize + (512 * (msgp.ByteSize))
 	return
 }
 
@@ -355,13 +440,13 @@ func (z *HashTable) Msgsize() (s int) {
 func (z *Iterator) DecodeMsg(dc *msgp.Reader) (err error) {
 	var field []byte
 	_ = field
-	var zxhx uint32
-	zxhx, err = dc.ReadMapHeader()
+	var zdaf uint32
+	zdaf, err = dc.ReadMapHeader()
 	if err != nil {
 		return
 	}
-	for zxhx > 0 {
-		zxhx--
+	for zdaf > 0 {
+		zdaf--
 		field, err = dc.ReadMapKeyPtr()
 		if err != nil {
 			return
@@ -399,39 +484,9 @@ func (z *Iterator) DecodeMsg(dc *msgp.Reader) (err error) {
 				if z.Cur == nil {
 					z.Cur = new(Cell)
 				}
-				var zlqf uint32
-				zlqf, err = dc.ReadMapHeader()
+				err = z.Cur.DecodeMsg(dc)
 				if err != nil {
 					return
-				}
-				for zlqf > 0 {
-					zlqf--
-					field, err = dc.ReadMapKeyPtr()
-					if err != nil {
-						return
-					}
-					switch msgp.UnsafeString(field) {
-					case "UnHashedKey":
-						z.Cur.UnHashedKey, err = dc.ReadUint64()
-						if err != nil {
-							return
-						}
-					case "ByteKey":
-						err = dc.ReadExactBytes(z.Cur.ByteKey[:])
-						if err != nil {
-							return
-						}
-					case "Value":
-						err = dc.ReadExactBytes(z.Cur.Value[:])
-						if err != nil {
-							return
-						}
-					default:
-						err = dc.Skip()
-						if err != nil {
-							return
-						}
-					}
 				}
 			}
 		default:
@@ -483,31 +538,7 @@ func (z *Iterator) EncodeMsg(en *msgp.Writer) (err error) {
 			return
 		}
 	} else {
-		// map header, size 3
-		// write "UnHashedKey"
-		err = en.Append(0x83, 0xab, 0x55, 0x6e, 0x48, 0x61, 0x73, 0x68, 0x65, 0x64, 0x4b, 0x65, 0x79)
-		if err != nil {
-			return err
-		}
-		err = en.WriteUint64(z.Cur.UnHashedKey)
-		if err != nil {
-			return
-		}
-		// write "ByteKey"
-		err = en.Append(0xa7, 0x42, 0x79, 0x74, 0x65, 0x4b, 0x65, 0x79)
-		if err != nil {
-			return err
-		}
-		err = en.WriteBytes(z.Cur.ByteKey[:])
-		if err != nil {
-			return
-		}
-		// write "Value"
-		err = en.Append(0xa5, 0x56, 0x61, 0x6c, 0x75, 0x65)
-		if err != nil {
-			return err
-		}
-		err = en.WriteBytes(z.Cur.Value[:])
+		err = z.Cur.EncodeMsg(en)
 		if err != nil {
 			return
 		}
@@ -537,16 +568,10 @@ func (z *Iterator) MarshalMsg(b []byte) (o []byte, err error) {
 	if z.Cur == nil {
 		o = msgp.AppendNil(o)
 	} else {
-		// map header, size 3
-		// string "UnHashedKey"
-		o = append(o, 0x83, 0xab, 0x55, 0x6e, 0x48, 0x61, 0x73, 0x68, 0x65, 0x64, 0x4b, 0x65, 0x79)
-		o = msgp.AppendUint64(o, z.Cur.UnHashedKey)
-		// string "ByteKey"
-		o = append(o, 0xa7, 0x42, 0x79, 0x74, 0x65, 0x4b, 0x65, 0x79)
-		o = msgp.AppendBytes(o, z.Cur.ByteKey[:])
-		// string "Value"
-		o = append(o, 0xa5, 0x56, 0x61, 0x6c, 0x75, 0x65)
-		o = msgp.AppendBytes(o, z.Cur.Value[:])
+		o, err = z.Cur.MarshalMsg(o)
+		if err != nil {
+			return
+		}
 	}
 	return
 }
@@ -555,13 +580,13 @@ func (z *Iterator) MarshalMsg(b []byte) (o []byte, err error) {
 func (z *Iterator) UnmarshalMsg(bts []byte) (o []byte, err error) {
 	var field []byte
 	_ = field
-	var zdaf uint32
-	zdaf, bts, err = msgp.ReadMapHeaderBytes(bts)
+	var zpks uint32
+	zpks, bts, err = msgp.ReadMapHeaderBytes(bts)
 	if err != nil {
 		return
 	}
-	for zdaf > 0 {
-		zdaf--
+	for zpks > 0 {
+		zpks--
 		field, bts, err = msgp.ReadMapKeyZC(bts)
 		if err != nil {
 			return
@@ -599,39 +624,9 @@ func (z *Iterator) UnmarshalMsg(bts []byte) (o []byte, err error) {
 				if z.Cur == nil {
 					z.Cur = new(Cell)
 				}
-				var zpks uint32
-				zpks, bts, err = msgp.ReadMapHeaderBytes(bts)
+				bts, err = z.Cur.UnmarshalMsg(bts)
 				if err != nil {
 					return
-				}
-				for zpks > 0 {
-					zpks--
-					field, bts, err = msgp.ReadMapKeyZC(bts)
-					if err != nil {
-						return
-					}
-					switch msgp.UnsafeString(field) {
-					case "UnHashedKey":
-						z.Cur.UnHashedKey, bts, err = msgp.ReadUint64Bytes(bts)
-						if err != nil {
-							return
-						}
-					case "ByteKey":
-						bts, err = msgp.ReadExactBytes(bts, z.Cur.ByteKey[:])
-						if err != nil {
-							return
-						}
-					case "Value":
-						bts, err = msgp.ReadExactBytes(bts, z.Cur.Value[:])
-						if err != nil {
-							return
-						}
-					default:
-						bts, err = msgp.Skip(bts)
-						if err != nil {
-							return
-						}
-					}
 				}
 			}
 		default:
@@ -657,7 +652,7 @@ func (z *Iterator) Msgsize() (s int) {
 	if z.Cur == nil {
 		s += msgp.NilSize
 	} else {
-		s += 1 + 12 + msgp.Uint64Size + 8 + msgp.ArrayHeaderSize + (64 * (msgp.ByteSize)) + 6 + msgp.ArrayHeaderSize + (56 * (msgp.ByteSize))
+		s += z.Cur.Msgsize()
 	}
 	return
 }
@@ -740,6 +735,6 @@ func (z *Val_t) UnmarshalMsg(bts []byte) (o []byte, err error) {
 
 // Msgsize returns an upper bound estimate of the number of bytes occupied by the serialized message
 func (z *Val_t) Msgsize() (s int) {
-	s = msgp.ArrayHeaderSize + (56 * (msgp.ByteSize))
+	s = msgp.ArrayHeaderSize + (512 * (msgp.ByteSize))
 	return
 }

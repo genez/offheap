@@ -3,7 +3,7 @@ package offheap_test
 import (
 	"testing"
 
-	"github.com/glycerine/offheap"
+	"github.com/genez/offheap"
 	cv "github.com/glycerine/goconvey/convey"
 )
 

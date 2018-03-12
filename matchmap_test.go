@@ -4,7 +4,7 @@ import (
 	"encoding/binary"
 	"fmt"
 
-	"github.com/glycerine/offheap"
+	"github.com/genez/offheap"
 )
 
 // compare for correctness checking

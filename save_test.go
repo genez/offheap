@@ -8,14 +8,14 @@ import (
 	"testing"
 
 	cv "github.com/glycerine/goconvey/convey"
-	"github.com/glycerine/offheap"
+	"github.com/genez/offheap"
 )
 
 func TestSaveRestore(t *testing.T) {
 
 	fn := "save_test_hash.ohdat"
 	err := os.Remove(fn)
-	if err != nil && !strings.HasSuffix(err.Error(), "no such file or directory") {
+	if err != nil && !os.IsNotExist(err) {
 		panic(err)
 	}
 	defer os.Remove(fn)
@@ -45,7 +45,7 @@ func TestSaveRestore(t *testing.T) {
 		// copy to a new file to be sure everything is there, then mmap the new file
 		fncopy := fn + ".copy"
 		err := os.Remove(fncopy)
-		if err != nil && !strings.HasSuffix(err.Error(), "no such file or directory") {
+		if err != nil && !os.IsNotExist(err) {
 			panic(err)
 		}
 		err = exec.Command("/bin/cp", "-p", fn, fncopy).Run()

@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/glycerine/offheap"
+	"github.com/genez/offheap"
 	cv "github.com/glycerine/goconvey/convey"
 )
 

@@ -3,9 +3,8 @@ package offheap
 import (
 	"fmt"
 	"os"
-	"syscall"
 
-	"github.com/glycerine/gommap"
+	"github.com/edsrzf/mmap-go"
 )
 
 // The MmapMalloc struct represents either an anonymous, private
@@ -26,7 +25,7 @@ type MmapMalloc struct {
 	Fd           int
 	FileBytesLen int64
 	BytesAlloc   int64
-	MMap         gommap.MMap // equiv to Mem, just avoids casts everywhere.
+	MMap         mmap.MMap // equiv to Mem, just avoids casts everywhere.
 	Mem          []byte      // equiv to Mmap
 }
 
@@ -38,7 +37,7 @@ func (mm *MmapMalloc) TruncateTo(newSize int64) {
 	if mm.File == nil {
 		panic("cannot call TruncateTo() on a non-file backed MmapMalloc.")
 	}
-	err := syscall.Ftruncate(int(mm.File.Fd()), newSize)
+	err := mm.File.Truncate(newSize)
 	if err != nil {
 		panic(err)
 	}
@@ -52,7 +51,7 @@ func (mm *MmapMalloc) Free() {
 	if mm.File != nil {
 		mm.File.Close()
 	}
-	err := mm.MMap.UnsafeUnmap()
+	err := mm.MMap.Unmap()
 	if err != nil {
 		panic(err)
 	}
@@ -78,9 +77,9 @@ func Malloc(numBytes int64, path string) *MmapMalloc {
 		Path: path,
 	}
 
-	flags := syscall.MAP_SHARED
+	flags := 0
 	if path == "" {
-		flags = syscall.MAP_ANON | syscall.MAP_PRIVATE
+		flags = mmap.ANON
 		mm.Fd = -1
 
 		if numBytes < 0 {
@@ -114,15 +113,16 @@ func Malloc(numBytes int64, path string) *MmapMalloc {
 		// file-backed memory
 		if numBytes < 0 {
 
-			var stat syscall.Stat_t
-			if err := syscall.Fstat(mm.Fd, &stat); err != nil {
+			fi, err := mm.File.Stat()
+			if err != nil {
 				panic(err)
 			}
-			sz = stat.Size
+
+			sz = fi.Size()
 
 		} else {
 			// set to the size requested
-			err := syscall.Ftruncate(mm.Fd, numBytes)
+			err := mm.File.Truncate(numBytes)
 			if err != nil {
 				panic(err)
 			}
@@ -133,36 +133,32 @@ func Malloc(numBytes int64, path string) *MmapMalloc {
 
 	mm.BytesAlloc = sz
 
-	prot := syscall.PROT_READ | syscall.PROT_WRITE
+	prot := mmap.RDWR
 
 	vprintf("\n ------->> path = '%v',  mm.Fd = %v, with flags = %x, sz = %v,  prot = '%v'\n", path, mm.Fd, flags, sz, prot)
 
-	var mmap []byte
+	var mmapBuffer []byte
 	var err error
 	if mm.Fd == -1 {
-
-		flags = syscall.MAP_ANON | syscall.MAP_PRIVATE
-		mmap, err = syscall.Mmap(-1, 0, int(sz), prot, flags)
+		mmapBuffer, err = mmap.MapRegion(nil, int(sz), prot, flags, 0)
 
 	} else {
-
-		flags = syscall.MAP_SHARED
-		mmap, err = syscall.Mmap(mm.Fd, 0, int(sz), prot, flags)
+		mmapBuffer, err = mmap.Map(mm.File, prot, flags)
 	}
 	if err != nil {
 		panic(err)
 	}
 
 	// duplicate member to avoid casts all over the place.
-	mm.MMap = mmap
-	mm.Mem = mmap
+	mm.MMap = mmapBuffer
+	mm.Mem = mmapBuffer
 
 	return &mm
 }
 
 // BlockUntilSync() returns only once the file is synced to disk.
 func (mm *MmapMalloc) BlockUntilSync() {
-	mm.MMap.Sync(gommap.MS_SYNC)
+	mm.MMap.Flush()
 }
 
 // BackgroundSync() schedules a sync to disk, but may return before it is done.
@@ -171,7 +167,7 @@ func (mm *MmapMalloc) BlockUntilSync() {
 // the munmap() call that happens during Free(). See the man pages msync(2)
 // and mmap(2) for details.
 func (mm *MmapMalloc) BackgroundSync() {
-	mm.MMap.Sync(gommap.MS_ASYNC)
+	mm.MMap.Flush()
 }
 
 // Growmap grows a memory mapping
@@ -190,7 +186,7 @@ func Growmap(oldmap *MmapMalloc, newSize int64) (newmap *MmapMalloc, err error) 
 	newmap.Fd = oldmap.Fd
 
 	// set to the size requested
-	err = syscall.Ftruncate(newmap.Fd, newSize)
+	err = newmap.File.Truncate(newSize)
 	if err != nil {
 		panic(err)
 		return nil, fmt.Errorf("syscall.Ftruncate to grow %v -> %v"+
@@ -199,20 +195,20 @@ func Growmap(oldmap *MmapMalloc, newSize int64) (newmap *MmapMalloc, err error) 
 	newmap.FileBytesLen = newSize
 	newmap.BytesAlloc = newSize
 
-	prot := syscall.PROT_READ | syscall.PROT_WRITE
-	flags := syscall.MAP_SHARED
+	prot := mmap.RDWR
+	flags := 0
 
-	p("\n ------->> path = '%v',  newmap.Fd = %v, with flags = %x, sz = %v,  prot = '%v'\n", newmap.Path, newmap.Fd, flags, newSize, prot)
+	//p("\n ------->> path = '%v',  newmap.Fd = %v, with flags = %x, sz = %v,  prot = '%v'\n", newmap.Path, newmap.Fd, flags, newSize, prot)
 
-	mmap, err := syscall.Mmap(newmap.Fd, 0, int(newSize), prot, flags)
+	mmapBuffer, err := mmap.Map(newmap.File, prot, flags)
 	if err != nil {
 		panic(err)
 		return nil, fmt.Errorf("syscall.Mmap returned error: '%v'", err)
 	}
 
 	// duplicate member to avoid casts all over the place.
-	newmap.MMap = mmap
-	newmap.Mem = mmap
+	newmap.MMap = mmapBuffer
+	newmap.Mem = mmapBuffer
 
 	return newmap, nil
 }
